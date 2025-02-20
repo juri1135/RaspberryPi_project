@@ -4,44 +4,52 @@
 #include "rpi_1.h"
 #include <pthread.h>
 int trig=0;
+pthread_t ledthread;
+pthread_t ultrathread;
 int main(){
   //coucurrent execution을 위해 multithread programming... 
   //실습3 monte carlo code 참고 
-    //wiringPi, LED initialization
+    //wiringPi, CAN initialization
     wiringPiSetupGpio();
-    pinMode(LED_PIN,1);
-    
-    // step 1 
-    led_thread();
-    ultrasonic_thread();
-    can_init();
+    init_can();
 
+    // step 1 LED 점멸 시작
+    led_thread();
+    //step 3 초음파 센서 
+    ultrasonic_thread();
     // step 2 
     int source = 2; // 시작 노드 (S)
     int destination = 5; // 도착 노드 (D)
     char buf[128]="";
     int len;
     findShortestPath(source, destination, buf, &len);
-    
     displayText(1,buf);
 
-    // step 3
-    ultrasonic();
+    
     
     // step 4
-    if(moveMotor(180)==-1) printf("error\n");
+    // rotate Motor (180) and rerotate (0) using RPC 
+    if(moveMotor(180)==-1) printf("error moveMotor\n");
+    delay(1000);
+    if(moveMotor(0)==-1) printf("error moveMotor\n");
     
-    
-		// step 5
-		char text[128];
+    //step 5
     while(1){
+      char text[128];
+
       printf("Enter your text to display on RPI #2's LCD: ");
       fgets(text,sizeof(text),stdin);
       if(strcmp(text,"quit")==0){
-        if(sendCommand("quit","","")==-1) break;
-        else printf("Terminating Rpi #1.\n");
+        if(terminateRPC(text)==0){
+          printf("Terminating RPi #1.\n");
+          terminate_can();
+          break;
+        }
       }
-      else sendCommand("LCD","1",text);
-	  }
-    
+      else displayText(1,text);
+     }
+    pthread_join(ledthread,NULL);
+    pthread_join(ultrathread,NULL);
+    //wiringpi 종료료
+    return 0;
 }
