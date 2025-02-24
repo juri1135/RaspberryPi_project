@@ -15,46 +15,87 @@ int socketCANDescriptor;
 struct sockaddr_can addr;
 struct ifreq ifr;
 struct can_frame frame;
-int moreEight(int id, char *buf, int len){     
-        int packetTotal=len/8;                
-        int lastPacketSize=len%8;  
-        int carry=0;            
-        frame.can_id=id;
-
+static int canId;
+static int prev=-1;
+int moreEight(char *buf, int len) {
+        printf("buf data (displayText): ");
+        for (int i = 0; i < len; i++) {
+            printf("%c", buf[i]); 
+        }
+        printf("\n");
+    
+        int packetTotal = len / 8;
+        int lastPacketSize = len % 8;
+    
         for (int i = 0; i < packetTotal; i++) {
             frame.can_dlc = 8;
-            frame.can_id+=carry;
+            frame.can_id = canId++;
+    
             memcpy(frame.data, buf + (i * 8), 8);
-            
+    
+            // 마지막 8바이트 패킷이면 frame.data[1] = 1 설정
+            if (i == packetTotal - 1 && lastPacketSize == 0) {
+                frame.data[1] = 1;
+            }
+    
+            // 패킷 데이터 출력
+            printf("frame.data[%d]: ", frame.can_dlc);
+            for (int j = 0; j < frame.can_dlc; j++) {
+                printf("%c", frame.data[j]);
+            }
+            printf("\n");
+    
             if (write(socketCANDescriptor, &frame, sizeof(struct can_frame)) != sizeof(struct can_frame)) {
                 perror("Write failed");
                 return -1;
             }
-            carry++;
         }
-        //8byte씩 전달하고 남은 게 있다면 그거 처리
-        if(lastPacketSize>0){
-                frame.can_dlc = lastPacketSize;
-                frame.can_id+=carry;
-            memcpy(frame.data, buf + (packetTotal * 8), 8);
-            
+    
+        // 마지막 패킷 처리 (남은 데이터가 있을 때만)
+        if (lastPacketSize > 0) {
+            frame.can_dlc = lastPacketSize;
+            frame.can_id = canId++;
+    
+            memcpy(frame.data, buf + (packetTotal * 8), lastPacketSize);
+    
+            frame.data[1] = 1;  // 마지막 패킷 표시
+    
+            // 마지막 패킷 데이터 출력
+            printf("frame.data[%d] (last packet): ", frame.can_dlc);
+            for (int j = 0; j < frame.can_dlc; j++) {
+                printf("%c", frame.data[j]);
+            }
+            printf("\n");
+    
             if (write(socketCANDescriptor, &frame, sizeof(struct can_frame)) != sizeof(struct can_frame)) {
                 perror("Write failed");
                 return -1;
             }
         }
-
+    
         return 0;
-}
-int write_can(int id, char *buf, int len){
-        frame.can_id = id;
+    }
+int write_can(char *buf, int len){
+        
+        frame.can_id = canId++;
         //moveMotor랑 terminate는 8 넘을 일 없음 
-        if(len>8){
-                moreEight(id,buf,len);
-                return 0;
-        }
+        
+
         frame.can_dlc = len;
-        memcpy(frame.data, (char *)buf, 8);
+        // printf("buf (write_can): ");
+        // for (int i = 0; i < len; i++) {  // buf의 내용 출력
+        //         printf("%c", buf[i]);
+        // }
+        // printf("\n");
+
+        memcpy(frame.data, buf, len);
+        if(len>8) return moreEight(buf, len);
+        printf("frame.data: ");
+        for (int i = 0; i < len; i++) {
+                printf("%c", frame.data[i]); // frame.data 내용 출력
+        }
+        printf("\n");
+        
         if (write(socketCANDescriptor, &frame, sizeof(struct can_frame)) != sizeof(struct can_frame)) {
                 perror("Write failed");
                 return -1;
@@ -65,7 +106,6 @@ int read_can(){
         int val;
         char receiveMessage[8];
         int nbytesReceived;
-        int prev = -1;
         while (1) {
                 nbytesReceived = read(socketCANDescriptor, &frame, sizeof(struct can_frame));
                 if (nbytesReceived < 0) {
@@ -107,10 +147,8 @@ int init_can(){
 }
 int terminate_can(){
         if (close(socketCANDescriptor) < 0) {
-                perror("Close failed");
-                return -1;
+            perror("Close failed");
+            return -1;
         }
-
         return 0;
-}
-
+    }

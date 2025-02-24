@@ -1,21 +1,20 @@
 #include <stdio.h>
 #include "rpi_1.h"
 #define INF 9999999
-#define MAX_NODES 100
-
+#define INF 9999999
+#define MAX_NODES 6  // 정점 수는 6으로 설정 (A부터 F까지)
 int arr[MAX_NODES];      // 거리 저장 배열
 int prev[MAX_NODES];     // 이전 노드 추적 배열
 int visit[MAX_NODES];    // 방문 체크 배열
 int edge[MAX_NODES][MAX_NODES]; // 간선 가중치 저장 배열
-const char* node_names[] = {"A", "B", "S", "C", "E", "D"}; 
 
 void build_path(int dest, char buffer[], int* len) {
     if (prev[dest] == -1) {
-        *len += snprintf(buffer + *len, 128 - *len, "%s", node_names[dest]);
+        *len += snprintf(buffer + *len, 128 - *len, "%c", dest + 'A');
         return;
     }
     build_path(prev[dest], buffer, len);
-    *len += snprintf(buffer + *len, 128 - *len, "->%s", node_names[dest]);
+    *len += snprintf(buffer + *len, 128 - *len, "->%c", dest + 'A');
 }
 
 void findShortestPath(int source, int destination, char buffer[], int* len) {
@@ -45,27 +44,24 @@ void findShortestPath(int source, int destination, char buffer[], int* len) {
 
     // 간선 정보 읽기
     for (int i = 0; i < E; i++) {
-        int u, v, w;
-        if (fscanf(file, "%d %d %d", &u, &v, &w) != 3) {
+        char u, v;
+        int w;
+        if (fscanf(file, " %c %c %d", &u, &v, &w) != 3) {
             perror("간선 데이터 읽기 실패");
             fclose(file);
             return;
         }
-        edge[u - 1][v - 1] = w; // 1-based -> 0-based
+        edge[u - 'A'][v - 'A'] = w;  // 'A'를 기준으로 0-based index로 처리
+        edge[v - 'A'][u - 'A'] = w;  // 무방향 그래프일 경우 양방향 처리
     }
     fclose(file);
 
-    // 1-based -> 0-based 변환
-    source--;
-    destination--;
-
-    // source와 destination이 같다면 처리
     if (source == destination) {
-        *len = snprintf(buffer, 128, "%s", node_names[source]);
+        *len = snprintf(buffer, 128, "%c", source); // 노드 이름 출력
         return;
     }
 
-    arr[source] = 0;
+    arr[source - 'A'] = 0;
 
     for (int k = 0; k < V; k++) {
         int min = INF;
@@ -76,7 +72,7 @@ void findShortestPath(int source, int destination, char buffer[], int* len) {
                 s = i;
             }
         }
-        if (s == -1 || s == destination) break;
+        if (s == -1 || s == destination - 'A') break;
 
         visit[s] = 1;
 
@@ -93,4 +89,5 @@ void findShortestPath(int source, int destination, char buffer[], int* len) {
     *len = 0;
     buffer[0] = '\0';
     build_path(destination, buffer, len);
+    printf("최단 경로: %s\n", buffer); 
 }

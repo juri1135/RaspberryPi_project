@@ -2,7 +2,8 @@
 #include <wiringPi.h>
 #include <stdlib.h>
 #include <stdio.h>
-
+#include "rpi_2.h"
+#include <string.h>
 #define Detected_DEVICE_ID_BY_I2C       0x27        // Device ID detected by I2C 
                                                     // Seems that it maps to the device's address
 #define LCD_BACKLIGHT_ON                0x08        // On             "0000 1000"
@@ -19,31 +20,37 @@ int deviceHandle;                                   // Seems that it maps to the
 
 void toggleLCDEnable(int eightBits)
 {
-  // Toggle enable pin on LCD display
-  delayMicroseconds(500);
-  wiringPiI2CWrite(deviceHandle, (eightBits | LCD_ENABLE));
-  delayMicroseconds(500);
-  wiringPiI2CWrite(deviceHandle, (eightBits | LCD_DISABLE));
-  delayMicroseconds(500);
+    delayMicroseconds(500);
+    if (wiringPiI2CWrite(deviceHandle, (eightBits | LCD_ENABLE)) < 0) {
+        perror("[ERROR] wiringPiI2CWrite (Enable HIGH) failed");
+    }
+    delayMicroseconds(500);
+
+    if (wiringPiI2CWrite(deviceHandle, (eightBits | LCD_DISABLE)) < 0) {
+        perror("[ERROR] wiringPiI2CWrite (Enable LOW) failed");
+    }
+    delayMicroseconds(500);
 }
 
 void sendBitsToLCD(int eightBits, int mode)
 {
-  int highFourBits;
-  int lowFourBits;
-  highFourBits = mode | (eightBits & 0xF0) | LCD_BACKLIGHT_ON;                // Let's always turn on the backlight
-  lowFourBits = mode | ((eightBits << 4) & 0xF0) | LCD_BACKLIGHT_ON;          // Let's always turn on the backlight
-  
-  // First, send highFourBits and pulse the enable pin
-  wiringPiI2CWrite(deviceHandle, highFourBits);  // 'xxxx abcd': xxxx is the high 4 bits of eightBits
-  toggleLCDEnable(highFourBits);
-  // Next, send lowFourBits and pulse the enable pin
-  wiringPiI2CWrite(deviceHandle, lowFourBits);   // 'yyyy abcd': yyyy is the low 4 bits of eightBits
-  toggleLCDEnable(lowFourBits);
+    int highFourBits = mode | (eightBits & 0xF0) | LCD_BACKLIGHT_ON;
+    int lowFourBits = mode | ((eightBits << 4) & 0xF0) | LCD_BACKLIGHT_ON;
+
+    if (wiringPiI2CWrite(deviceHandle, highFourBits) < 0) {
+        perror("[ERROR] wiringPiI2CWrite (highFourBits) failed");
+    }
+    toggleLCDEnable(highFourBits);
+
+    if (wiringPiI2CWrite(deviceHandle, lowFourBits) < 0) {
+        perror("[ERROR] wiringPiI2CWrite (lowFourBits) failed");
+    }
+    toggleLCDEnable(lowFourBits);
 }
 
 void initializeLCD()
-{
+{ 
+    deviceHandle = wiringPiI2CSetup(Detected_DEVICE_ID_BY_I2C);  
   sendBitsToLCD(0x33, LCD_RS_INST | LCD_RW_WRITE);       // "0011 0011" (8-bit mode, 1 line, 5x8 dots)
   sendBitsToLCD(0x32, LCD_RS_INST | LCD_RW_WRITE);       // "0011 0010" (8-bit mode, 1 line, 5x8 dots)
   sendBitsToLCD(0x06, LCD_RS_INST | LCD_RW_WRITE);       // "0000 0110" (cursor move direction is increment, normal shift operation)
@@ -55,22 +62,20 @@ void initializeLCD()
 }
 
 // Display text string 
-void displayText(int lineNum, const char *stringPointer)
+int displayText(int lineNum, char* text)
 {
-    initializeLCD();
-    changeLine(lineNum);
-  while(*stringPointer!=NULL){
-    sendBitsToLCD(*stringPointer,LCD_RS_DATA);
-    stringPointer++;
-  }
+  int len=strlen(text);
+  if(lineNum==1)  sendBitsToLCD(0x80, LCD_RS_INST | LCD_RW_WRITE); 
+  else sendBitsToLCD(0xC0, LCD_RS_INST | LCD_RW_WRITE); 
+    while (*text) {
+      if (*text == '\n') {
+      text++;
+      continue;
+      }
+      sendBitsToLCD(*text, LCD_RS_DATA);
+      text++;
+    }
+    return len;
 }
 
-void changeLine(int line)
-{
-  // Assignment 2: Insert your code here 
-  // so that changeLine(line) changes the cursor position to the requested "line"
-  // You also have to move the cursor to the start of the "line"
-  if(line==1)  sendBitsToLCD(0x80, LCD_RS_INST | LCD_RW_WRITE); 
-  else sendBitsToLCD(0xC0, LCD_RS_INST | LCD_RW_WRITE); 
-}
 

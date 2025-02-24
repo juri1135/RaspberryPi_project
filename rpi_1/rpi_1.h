@@ -29,8 +29,8 @@ int displayText(int lineNum,char *text);
 int terminateRPC(char *text);
 int moveMotor(int inputValue);
 //can.c
-int moreEight(int id, char *buf, int len);
-int write_can(int id, char *buf, int len);
+int moreEight(char *buf, int len);
+int write_can(char *buf, int len);
 int read_can();
 int init_can();
 int terminate_can();
