@@ -8,20 +8,15 @@ int init_stub(){
     int val;
     while(1){
         int id = read_can();
-        if (id == -1) {
-            perror("Read failed");
-            continue;  // 오류 발생 시 루프 계속 돌기
-        }
-        else{
-            // read_can에서 id를 받고 여기서 적절한 함수 호출해서 처리한다.
-            //처리하고 정상 처리 됐으면 여기서 write_can 호출해서 return값 보내주기 
-            //case문 써서 적절한 함수 호출하게 하면 될듯 
-            switch (id)
-            {
+        // read_can에서 id를 받고 여기서 적절한 함수 호출해서 처리한다.
+        //처리하고 정상 처리 됐으면 여기서 write_can 호출해서 return값 보내주기 
+        //case문 써서 적절한 함수 호출하게 하면 될듯 
+        switch (id)
+        {
             //motor
             case 0:
             int degree = atoi(receivedData);
-            printf("RPC request 'moveMotor(%d)' received and processed.\n",degree);
+            printf("RPC request 'moveMotor(%d)' received and processed.\n\n",degree);
                 
                 val = moveMotor(degree);
                 
@@ -51,16 +46,12 @@ int init_stub(){
             //lcd
             case 2:
             //!아 linenum이랑 data를 분리해야 함 공백으로 분리해뒀음... 
-                int lineNum;
+                int lineNum=receivedData[0]-'0';
                 char text[20];
-                char *pos=strchr(receivedData,' ');
-                if(pos!=NULL){
-                    *pos='\0';
-                    lineNum=atoi(receivedData);
-                    strcpy(text,pos+1);
-                }
+                memcpy(text,receivedData+1,strlen(receivedData));
                 printf("PRC request 'displayText(%d, %s) received and processed.\n\n",lineNum,text);
-                printf("%d\n",displayText(lineNum, text));
+                displayText(lineNum, text);
+                //printf("%d\n",displayText(lineNum, text));
                 break;
                 //!wirte can 작성하기!!!!!!!!!!! 
             case -2:
@@ -69,7 +60,7 @@ int init_stub(){
                 printf("Unknown ID received: %d\n", id);
                 break;
             }
-        }   
+        
     }
     return 0;
 }

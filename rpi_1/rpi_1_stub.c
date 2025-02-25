@@ -10,24 +10,26 @@ int moveMotor(int inputValue){
     //can frame에 id, length 들어감 id에 함수 id, data에 buf, decl에 strlen 넣기
     //write_can에 id, data, length 넘기기
     //data의 첫 번째 byte를 함수 고유 id로 지정
-    buf[0]=0;
-    int len = sprintf(buf + 1, "%d", inputValue); // buf에 값 저장
+    buf[0]='0';
+    buf[1]='1';
+    int len = sprintf(buf + 2, "%d", inputValue); // buf에 값 저장
 
-    if (write_can(buf, len + 1) < 0) {
+    if (write_can(buf, len + 2) < 0) {
         return -1;
     }
     //return값은 성공시 0
     delay(100); 
     int val=read_can();
-    printf("Requested RPC moveMotor() and received return value %d\n",inputValue);
+    printf("Requested RPC moveMotor() and received return value %d\n\n",inputValue);
     return val;
 }
 
 int terminateRPC(char *text){
     char buf[10];
-    buf[0]=1;
-    strncpy(buf + 1, text, strlen(text));
-    if (write_can(buf, strlen(buf) + 1) < 0) return -1;
+    buf[0]='1';
+    buf[1]='1';
+    strncpy(buf + 2, text, strlen(text));
+    if (write_can(buf, strlen(buf) + 2) < 0) return -1;
     delay(100); 
     int val=read_can();
     return val;
@@ -37,16 +39,23 @@ int terminateRPC(char *text){
 int displayText(int lineNum, char *text){
     int buf_size = 100 + strlen(text); 
     char buf[100];
-    buf[0]=2;
-    //마지막 packet인지 확인하기 위함  
-    buf[1]=strlen(text)>7 ?0:1;
-    int len = snprintf(buf + 2, buf_size - 2, "%d %s", lineNum, text); 
-    //lineNum과 text 사이에 공백 넣어서 구분할 수 있게 분리 
     
+    buf[0] = '2';
+    //마지막 패킷인지 구분하기 위함
+    buf[1] = '1';
+
+    int len = snprintf(buf + 2, buf_size - 2, "%d%s", lineNum, text);
+\
+    //lineNum과 text 사이에 공백 넣어서 구분할 수 있게 분리 
+    printf("buf (write_can): ");
+        for (int i = 0; i < len+2; i++) {  // buf의 내용 출력
+                printf("%c", buf[i]);
+        }
+        printf("\n");
     if (write_can(buf, len + 2) < 0) return -1;
     delay(100); 
     //return값은 문자열 크기기
     int val=read_can();
-    printf("Requested RPC displayText() and received return value %d\n",val);
+    printf("Requested RPC displayText() and received return value %d\n\n",val);
     return val;
 }
