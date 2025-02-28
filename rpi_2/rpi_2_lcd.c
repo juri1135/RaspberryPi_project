@@ -63,7 +63,9 @@ void initializeLCD()
 
 // Display text string 
 int displayText(int lineNum, char* text)
-{
+{   
+    //lcd 화면 초기화
+    sendBitsToLCD(0x01, LCD_RS_INST | LCD_RW_WRITE); 
   int len=strlen(text);
   if(lineNum==1)  sendBitsToLCD(0x80, LCD_RS_INST | LCD_RW_WRITE); 
   else sendBitsToLCD(0xC0, LCD_RS_INST | LCD_RW_WRITE); 
@@ -75,6 +77,7 @@ int displayText(int lineNum, char* text)
       sendBitsToLCD(*text, LCD_RS_DATA);
       text++;
     }
+
     return len;
 }
 

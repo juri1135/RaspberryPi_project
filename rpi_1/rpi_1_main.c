@@ -4,6 +4,7 @@
 #include "rpi_1.h"
 #include <pthread.h>
 int trig=0;
+int thread=1;
 pthread_t ledthread;
 pthread_t ultrathread;
 int main(){
@@ -46,14 +47,14 @@ int main(){
       if(strcmp(text,"quit")==0){
         if(terminateRPC(text)==0){
           printf("Terminating RPi #1.\n");
+          thread=0;
+          pthread_join(ultrathread,NULL);
+          pthread_join(ledthread,NULL);
           terminate_can();
+          return 0;
         }
       }
       else displayText(1,text);
      }
-     pthread_join(ultrathread,NULL);
-     pthread_join(ledthread,NULL);
-    
-    //wiringpi 종료료
-    return 0;
+     
 }

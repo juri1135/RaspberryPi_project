@@ -4,9 +4,10 @@
 #include "rpi_1.h"
 extern volatile int trig;
 extern pthread_t ledthread;
+extern volatile int thread;
 //monte carlo의 simulateMonteCarlo func 참고
 void* led_control(void* arg) {
-    while (1) {
+    while (thread) {
         //distance가 20보다 클 때만 1초 간격  점멸멸
         if(trig==0){
             digitalWrite(LED_PIN, 1);

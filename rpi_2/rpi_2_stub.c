@@ -7,6 +7,7 @@ int init_stub(){
     printf("RPi #2 is ready to accept RPC requests.\n\n");
     int val;
     while(1){
+        memset(receivedData,0,128);
         int id = read_can();
         // read_can에서 id를 받고 여기서 적절한 함수 호출해서 처리한다.
         //처리하고 정상 처리 됐으면 여기서 write_can 호출해서 return값 보내주기 
@@ -26,22 +27,24 @@ int init_stub(){
                 }
 
                 // 정상 처리 후 return 값 전송
-                int data = 0;  // 응답 데이터
                 char buf[8];
-                int len = sprintf(buf , "%d",data); 
-                write_can(buf, sizeof(int));
+                buf[0]='0';
+                write_can(buf, sizeof(char));
                 break;
             //terminate
             case 1:
                 printf("RPC request 'QUIT' command received.\n\n");
+                
+                char buffer[8];
+                buffer[0]='0';
+                write_can(buf,sizeof(char));
+                printf("Terminating RPi #2.\n");
                 val = terminate_can();
 
                 if (val == -1) {
                     perror("terminate_can failed");
                     continue;
                 }
-
-                printf("Terminating RPi #2.\n");
                 return 0;
             //lcd
             case 2:

@@ -30,8 +30,9 @@ int terminateRPC(char *text){
     buf[1]='1';
     strncpy(buf + 2, text, strlen(text));
     if (write_can(buf, strlen(buf) + 2) < 0) return -1;
-    delay(100); 
+    delay(1000); 
     int val=read_can();
+    printf("val: %d\n",val);
     return val;
 }
 //morethan8byte면 id에 carry 더해서 loopback시 두 번 출력 문제를 해결해야 됨
@@ -47,15 +48,11 @@ int displayText(int lineNum, char *text){
     int len = snprintf(buf + 2, buf_size - 2, "%d%s", lineNum, text);
 \
     //lineNum과 text 사이에 공백 넣어서 구분할 수 있게 분리 
-    printf("buf (write_can): ");
-        for (int i = 0; i < len+2; i++) {  // buf의 내용 출력
-                printf("%c", buf[i]);
-        }
-        printf("\n");
     if (write_can(buf, len + 2) < 0) return -1;
     delay(100); 
     //return값은 문자열 크기기
-    int val=read_can();
+    //int val=read_can();
+    int val=1;
     printf("Requested RPC displayText() and received return value %d\n\n",val);
     return val;
 }

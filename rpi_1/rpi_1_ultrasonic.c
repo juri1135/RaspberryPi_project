@@ -5,6 +5,7 @@
 #include "rpi_1.h"
 extern volatile int trig;
 extern pthread_t ultrathread;
+extern volatile int thread;
 float measureDistance(void) {
     struct timeval tv1, tv2;
     long time1, time2;
@@ -52,7 +53,7 @@ void* ultrasonic_control(void *args) {
     digitalWrite(Trig, LOW); // Trig 핀 초기화
     delay(5);
 
-    while (1) {
+    while (thread) {
         distance = measureDistance();
 
         if (distance == -1.0) {

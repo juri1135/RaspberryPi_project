@@ -18,48 +18,38 @@ struct can_frame frame;
 static int canId;
 static int prev=-1;
 int moreEight(char *buf, int len) {
-    //! 계속 data[0]에 2 넣고 data[1]은 last엔 1, 그 외는 0 넣어서 보내기 
-        printf("buf data (displayText): ");
-        for (int i = 0; i < len; i++) {
-            printf("%c", buf[i]); 
-        }
-        printf("\n");
-    //! 여기서 초기 buf에서 진짜 data를 잘라내야 됨 
+    // 모든 packet에 rpc 고유 id, last packet 식별자, lineNum 붙여서 보내기 
+
         //last packet(8byte 이하의 packet)이 존재한다면 +1을 해야 하고 존재하지 않는다면 packetTotal 그대로
+        //ex) helloworld가 text라면 rpc 고유 id 2, last packet 식별자 하나, lineNum 1 붙여서
+        //201hello, 211world 이렇게 두 개의 packet이 전달되어야 함
+        //buf에 211helloworld 상태로 넘어오기 때문에 식별자 3개를 제외하고 실제 data만으로 packetTotal이랑 size 계산
+        //이 예에선 전체 packet은 2개, last는 0임
+        //ex) helloworld~라면 
+        //201hello, 201world, 211~ 이렇게 세 개의 packet 전달
+        //전체 packet은 2, last는 1로 계산됨. 
         int packetTotal = (len-3) / 5;
         int lastPacketSize = (len-3) % 5;
-        printf("packetTotal: %d, lastSize:%d\n",packetTotal,lastPacketSize);
+        //lineNum 저장 
         char linenum=buf[2];
-        printf("linenum: %d\n",linenum);
         for (int i = 0; i < packetTotal; i++) {
+            //packetTotal은 모두 8바이트로 꽉 찬 packet들만 전달되기 때문에 dlc은 8로 고정하고 
+            //그외 식별자도 다 고정해줌 
             frame.can_dlc = 8;
             frame.can_id = canId++;
             frame.data[0]='2';
             frame.data[1]='0';
             frame.data[2]=linenum;
+            //초반 3바이트는 고정값이고 그 뒤 5바이트만 복사해서 저장해주면 됨. 
             memcpy(frame.data+3,buf+(i*5)+3,5);
-        
-            if(i==packetTotal-1&&lastPacketSize==0){
-                frame.data[1]='1';
-                printf("frame.data[%d] (last packet): ", frame.can_dlc);
-                for (int j = 0; j < frame.can_dlc; j++) {
-                    printf("%c", frame.data[j]);
-                }
-                printf("\n");
-        
-                if (write(socketCANDescriptor, &frame, sizeof(struct can_frame)) != sizeof(struct can_frame)) {
-                    perror("Write failed");
-                    return -1;
-                }
-                return 0;
-            }
+            if(i==packetTotal-1&&lastPacketSize==0) frame.data[1]='1';
             // 패킷 데이터 출력
             printf("frame.data[%d]: ", frame.can_dlc);
             for (int j = 0; j < frame.can_dlc; j++) {
                 printf("%c", frame.data[j]);
             }
             printf("\n");
-    
+
             if (write(socketCANDescriptor, &frame, sizeof(struct can_frame)) != sizeof(struct can_frame)) {
                 perror("Write failed");
                 return -1;
@@ -68,21 +58,23 @@ int moreEight(char *buf, int len) {
     
         // 마지막 패킷 처리 (남은 데이터가 있을 때만)
         if (lastPacketSize > 0) {
+            //길이는 진짜 data에 고유 식별자 3byte 추가가
             frame.can_dlc = lastPacketSize+3;
             frame.can_id = canId++;
     
-            memcpy(frame.data+3,buf+(packetTotal*5)+3,lastPacketSize);
+            
             frame.data[0]='2';
             frame.data[1] = '1';  // 마지막 패킷 표시
             frame.data[2]=linenum;
-            //snprintf(frame.data + 2, 90, "%d %s", linenum, buf+(i*6)+1);
+            memcpy(frame.data+3,buf+(packetTotal*5)+3,lastPacketSize);
+            
             // 마지막 패킷 데이터 출력
             printf("frame.data[%d] (last packet): ", frame.can_dlc);
             for (int j = 0; j < frame.can_dlc; j++) {
                 printf("%c", frame.data[j]);
             }
             printf("\n");
-    
+            printf("Current canId: %d\n", canId);
             if (write(socketCANDescriptor, &frame, sizeof(struct can_frame)) != sizeof(struct can_frame)) {
                 perror("Write failed");
                 return -1;
@@ -94,24 +86,18 @@ int moreEight(char *buf, int len) {
 int write_can(char *buf, int len){
         
         frame.can_id = canId++;
-        //moveMotor랑 terminate는 8 넘을 일 없음 
-        
-
         frame.can_dlc = len;
-        // printf("buf (write_can): ");
-        // for (int i = 0; i < len; i++) {  // buf의 내용 출력
-        //         printf("%c", buf[i]);
-        // }
-        // printf("\n");
 
         memcpy(frame.data, buf, len);
+
         if(len>8) return moreEight(buf, len);
+
         printf("frame.data: ");
         for (int i = 0; i < len; i++) {
                 printf("%c", frame.data[i]); // frame.data 내용 출력
         }
         printf("\n");
-        
+        printf("Current canId: %d\n", canId);
         if (write(socketCANDescriptor, &frame, sizeof(struct can_frame)) != sizeof(struct can_frame)) {
                 perror("Write failed");
                 return -1;
@@ -134,8 +120,9 @@ int read_can(){
 
                 memcpy(receiveMessage, (unsigned char *)(frame.data), frame.can_dlc);
                 receiveMessage[frame.can_dlc] = '\n';
-                //printf("%s", receiveMessage);
-                val=atoi(receiveMessage);
+                val=receiveMessage[0]-'0';
+                printf("read can: %s\n\n", receiveMessage);
+                
                  return val;
         }
         
@@ -161,10 +148,18 @@ int init_can(){
         printf("RPi #1 is ready.\n\n");
         return 0;
 }
-int terminate_can(){
-        if (close(socketCANDescriptor) < 0) {
-            perror("Close failed");
-            return -1;
-        }
-        return 0;
+
+int terminate_can() {
+    if (socketCANDescriptor < 0) {  // 이미 닫혔거나 유효하지 않은 경우
+        printf("CAN socket already closed or invalid.\n");
+        return -1;
     }
+    if (close(socketCANDescriptor) < 0) {
+        perror("Close failed");
+        return -1;
+    }
+    // 닫은 후에는 descriptor를 -1로 설정해서 재사용 방지
+    socketCANDescriptor = -1;
+
+    return 0;
+}
