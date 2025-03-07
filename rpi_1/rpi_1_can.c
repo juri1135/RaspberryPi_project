@@ -15,8 +15,9 @@ int socketCANDescriptor;
 struct sockaddr_can addr;
 struct ifreq ifr;
 struct can_frame frame;
-static int canId;
-static int prev=-1;
+int globalCan=0;
+int carry=0;
+int pre=-1;
 int moreEight(char *buf, int len) {
     // 모든 packet에 rpc 고유 id, last packet 식별자, lineNum 붙여서 보내기 
 
@@ -36,7 +37,8 @@ int moreEight(char *buf, int len) {
             //packetTotal은 모두 8바이트로 꽉 찬 packet들만 전달되기 때문에 dlc은 8로 고정하고 
             //그외 식별자도 다 고정해줌 
             frame.can_dlc = 8;
-            frame.can_id = canId++;
+            frame.can_id =carry++;
+            globalCan=frame.can_id;
             frame.data[0]='2';
             frame.data[1]='0';
             frame.data[2]=linenum;
@@ -49,7 +51,6 @@ int moreEight(char *buf, int len) {
                 printf("%c", frame.data[j]);
             }
             printf("\n");
-
             if (write(socketCANDescriptor, &frame, sizeof(struct can_frame)) != sizeof(struct can_frame)) {
                 perror("Write failed");
                 return -1;
@@ -60,9 +61,8 @@ int moreEight(char *buf, int len) {
         if (lastPacketSize > 0) {
             //길이는 진짜 data에 고유 식별자 3byte 추가가
             frame.can_dlc = lastPacketSize+3;
-            frame.can_id = canId++;
-    
-            
+            frame.can_id =carry++;
+            globalCan=frame.can_id;
             frame.data[0]='2';
             frame.data[1] = '1';  // 마지막 패킷 표시
             frame.data[2]=linenum;
@@ -74,7 +74,6 @@ int moreEight(char *buf, int len) {
                 printf("%c", frame.data[j]);
             }
             printf("\n");
-            printf("Current canId: %d\n", canId);
             if (write(socketCANDescriptor, &frame, sizeof(struct can_frame)) != sizeof(struct can_frame)) {
                 perror("Write failed");
                 return -1;
@@ -83,21 +82,25 @@ int moreEight(char *buf, int len) {
     
         return 0;
     }
-int write_can(char *buf, int len){
+
         
-        frame.can_id = canId++;
-        frame.can_dlc = len;
+    int write_can(char *buf, int len) {
+        memset(&frame, 0, sizeof(frame));        
 
         memcpy(frame.data, buf, len);
 
-        if(len>8) return moreEight(buf, len);
-
+        if(len>8){
+            moreEight(buf, len);
+            return 1;
+        }
+        frame.can_id =carry++;
+        globalCan=frame.can_id;
+        frame.can_dlc = len;
         printf("frame.data: ");
         for (int i = 0; i < len; i++) {
                 printf("%c", frame.data[i]); // frame.data 내용 출력
         }
         printf("\n");
-        printf("Current canId: %d\n", canId);
         if (write(socketCANDescriptor, &frame, sizeof(struct can_frame)) != sizeof(struct can_frame)) {
                 perror("Write failed");
                 return -1;
@@ -109,19 +112,25 @@ int read_can(){
         char receiveMessage[8];
         int nbytesReceived;
         while (1) {
+            memset(&frame,0,sizeof(frame));
                 nbytesReceived = read(socketCANDescriptor, &frame, sizeof(struct can_frame));
                 if (nbytesReceived < 0) {
                         perror("Read failed");
                         return -1;
                 }
+                
                 //중복이면 씹기 (loopback mode)
-                if(frame.can_id==prev) continue;
-                prev=frame.can_id;   
-
+                if(frame.can_id==globalCan||frame.can_id==pre) continue;
+                if(frame.can_dlc!=1) continue;
+                pre=frame.can_id; 
+                printf("id: %d\n",frame.can_id);
+                printf("read frame.data: ");
+                for (int i = 0; i < frame.can_dlc; i++) {
+                        printf("%c", frame.data[i]); // frame.data 내용 출력
+                }
+                printf("\n");
                 memcpy(receiveMessage, (unsigned char *)(frame.data), frame.can_dlc);
-                receiveMessage[frame.can_dlc] = '\n';
                 val=receiveMessage[0]-'0';
-                printf("read can: %s\n\n", receiveMessage);
                 
                  return val;
         }
@@ -140,7 +149,7 @@ int init_can(){
         
         addr.can_family = AF_CAN;        
         addr.can_ifindex = ifr.ifr_ifindex;
-
+        frame.can_id=0x555;
         if (bind(socketCANDescriptor, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
                 perror("Bind failed");
                 return -1;

@@ -53,11 +53,12 @@ int init_stub(){
                 char text[20];
                 memcpy(text,receivedData+1,strlen(receivedData));
                 printf("PRC request 'displayText(%d, %s) received and processed.\n\n",lineNum,text);
+                int len = strlen(text);
+                char buff[8];
+                sprintf(buff,"%d",len);
+                printf("len: %c\n",buff[0]);
                 displayText(lineNum, text);
-                //printf("%d\n",displayText(lineNum, text));
-                break;
-                //!wirte can 작성하기!!!!!!!!!!! 
-            case -2:
+                write_can(buff,sizeof(char));
                 break;
             default:
                 printf("Unknown ID received: %d\n", id);
