@@ -89,5 +89,5 @@ void findShortestPath(int source, int destination, char buffer[], int* len) {
     *len = 0;
     buffer[0] = '\0';
     build_path(destination, buffer, len);
-    printf("최단 경로: %s\n", buffer); 
+    printf("Shortest path: %s\n", buffer); 
 }

@@ -39,8 +39,7 @@ int init_stub(){
                 buffer[0]='0';
                 write_can(buf,sizeof(char));
                 printf("Terminating RPi #2.\n");
-                val = terminate_can();
-
+                val =terminate_can();
                 if (val == -1) {
                     perror("terminate_can failed");
                     continue;

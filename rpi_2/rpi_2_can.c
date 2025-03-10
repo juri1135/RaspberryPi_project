@@ -11,7 +11,7 @@
 #include <linux/can.h>
 #include <linux/can/raw.h>
 #include "rpi_2.h"
-int socketCANDescriptor;
+ int socketCANDescriptor;
 struct sockaddr_can addr;
 struct ifreq ifr;
 struct can_frame frame;
@@ -37,7 +37,7 @@ int read_can(){
             return -1;
         }
         //!------pkt 등 거르는 과정--------
-        printf("myId: %d, id: %d\n",myId,frame.can_id);
+        //printf("myId: %d, id: %d\n",myId,frame.can_id);
        if(frame.can_dlc==1) continue;
        if(frame.can_id==myId) continue;
         if (frame.can_id == prev) continue;
@@ -55,7 +55,7 @@ int read_can(){
             memcpy(receivedData, frame.data + 2, frame.can_dlc+1);  
             receivedData[frame.can_dlc - 1] = '\0';
 
-            printf("received data: %s\n", receivedData);
+            //printf("received data: %s\n", receivedData);
             return rpc;
         }
         

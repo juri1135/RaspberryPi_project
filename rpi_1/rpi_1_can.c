@@ -11,7 +11,7 @@
 #include <linux/can.h>
 #include <linux/can/raw.h>
 #include "rpi_1.h"
-int socketCANDescriptor;
+extern int socketCANDescriptor;
 struct sockaddr_can addr;
 struct ifreq ifr;
 struct can_frame frame;
@@ -164,6 +164,7 @@ int init_can(){
 }
 
 int terminate_can() {
+    fflush(stdout);
     if (socketCANDescriptor < 0) {  // 이미 닫혔거나 유효하지 않은 경우
         printf("CAN socket already closed or invalid.\n");
         return -1;

@@ -33,7 +33,7 @@ int terminateRPC(char *text){
     if (write_can(buf, strlen(buf) + 2) < 0) return -1;
     delay(1000); 
     int val=read_can();
-    printf("val: %d\n",val);
+    //printf("val: %d\n",val);
     return val;
 }
 
