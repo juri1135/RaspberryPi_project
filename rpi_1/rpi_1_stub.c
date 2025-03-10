@@ -36,8 +36,7 @@ int terminateRPC(char *text){
     printf("val: %d\n",val);
     return val;
 }
-//morethan8byte면 id에 carry 더해서 loopback시 두 번 출력 문제를 해결해야 됨
-// 따라서 displayText를 가장 마지막 id로 지정 
+
 int displayText(int lineNum, char *text){
     int buf_size = 100 + strlen(text); 
     char buf[100];
@@ -45,13 +44,10 @@ int displayText(int lineNum, char *text){
     buf[0] = '2';
     //마지막 패킷인지 구분하기 위함
     buf[1] = '1';
-
     int len = snprintf(buf + 2, buf_size - 2, "%d%s", lineNum, text);
-\
-    //lineNum과 text 사이에 공백 넣어서 구분할 수 있게 분리 
     if (write_can(buf, len + 2) < 0) return -1;
     delay(100); 
-    //return값은 문자열 크기기
+    //return값은 문자열 크기
     int val=read_can();
     printf("Requested RPC displayText() and received return value %d\n\n",val);
     return val;

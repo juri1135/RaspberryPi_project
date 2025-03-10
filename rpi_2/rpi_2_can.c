@@ -18,13 +18,15 @@ struct can_frame frame;
 char receivedData[128];
 static int prev=-1;
 static int cId=0x55;
+int idCheck=0;
+int wrongId=-2;
+int myId=-1;
 //! displayText에서 packet 두 개 보내면 이유는 모르겠지만 두 번씩 받아짐 (미해결)
 //! packet 3개 이상으로 쪼개지는 경우엔 dlc은 ㄱㅊ은데 data가 아예 깨져서 받아짐 (미해결)
 int read_can(){
     int nbytesReceived;
     int carry=0;
-    int check=0;
-    int prePkt=-1;
+    int index=0;
     
     while (1) {
         memset(&frame,0,sizeof(frame));
@@ -34,74 +36,82 @@ int read_can(){
             perror("Read failed");
             return -1;
         }
+        //!------pkt 등 거르는 과정--------
+        printf("myId: %d, id: %d\n",myId,frame.can_id);
        if(frame.can_dlc==1) continue;
-        //loopback mode로 인한 중복 데이터 방지지
+       if(frame.can_id==myId) continue;
         if (frame.can_id == prev) continue;
         prev=frame.can_id;
-        
+        //!---rpc type 확인---
         int rpc = frame.data[0] - '0';
-        //유효한 값인지 검사
-        if(rpc==0&&frame.data[1]!='1') continue;
-        printf("\nid: %d\n",frame.can_id);
-        printf("nbytes: %d, dlc: %d\n",nbytesReceived,frame.can_dlc);
-        printf("frame.data: ");
-        for (int i = 0; i < frame.can_dlc; i++) {
-                printf("%c", frame.data[i]); // frame.data 내용 출력
+
+
+
+    
+        //!------------------------moveMotor, terminateRPC----------------------------------------------  
+        if(rpc==0||rpc==1){
+            //!---rpc의 valid bit 확인--
+            if(frame.data[1]!='1') continue;
+            memcpy(receivedData, frame.data + 2, frame.can_dlc+1);  
+            receivedData[frame.can_dlc - 1] = '\0';
+
+            printf("received data: %s\n", receivedData);
+            return rpc;
         }
-        printf("\n");
-
-        //displayText 
-        //!어차피 0, 1번째는 다 확인 용도라서 무조건 index 2부터 저장하면 되고 길이는 마지막이면 dlc-2였나면 되고 그 외는 다 5인가 6인가임 
         
+
+        // printf("\nid: %d\n",frame.can_id);
+        // printf("frame.data: ");
+        // for (int i = 0; i < frame.can_dlc; i++) {
+        //         printf("%c", frame.data[i]); // frame.data 내용 출력
+        // }
+        // printf("\n");
+
+        //!-------------------------displayText----------------------------------------------  
         if (frame.data[0] == '2') { 
-            // if(check==0) prePkt=frame.can_id-1;
-            // else if((prePkt+1)!=frame.can_id) continue;
-            // prePkt=frame.can_id;
-
-
-            //만약 packet이 1개짜리라면 그냥 data 받아서 return 
-            if(check==0 && frame.data[1]=='1'){
-                // Line number 저장
-                if (carry == 0) receivedData[0] = frame.data[2];
-                
-                // 데이터 이어붙이기
-                memcpy(receivedData + (carry * 5) + 1, frame.data + 3, frame.can_dlc - 3);
+            //만약 loopback으로 인해 잘못 수신된 pkt이라면 (wrong pkt은 정상적인 pkt과 id가 비연속적이지만 잘못된 pkt끼리는 id가 연속적임)
+            if(frame.can_id==wrongId+1){
+                wrongId++;
+                continue;
+            }
             
-                printf("%s\n",receivedData);
-                printf("text: %s\n", receivedData);
-                
+            //!--------------8byte 미만이라 packet이 1개인 경우-----------------------------------------
+            //index: n개의 pkt 중 몇 번째 pkt인지 체크, frame.data[1]은 last packet인지 여부 
+            if(index==0 && frame.data[1]=='1'){
+                //!-----lineNum이랑 제일 첫 번째 pkt의 data 복사 
+                //carry는 receivedData에 계속 이어 붙여야 해서 check용도. frame.data[2]는 Line number 
+                if (carry == 0) receivedData[0] = frame.data[2];
+                // 데이터 이어붙이기 (8byte 중 3byte는 rpc num, last packet 여부, linenum)
+                memcpy(receivedData + (carry * 5) + 1, frame.data + 3, frame.can_dlc - 3);
                 return 2;
             }
-            check++;
-            printf("check: %d\n",check);
-            
-            if(check%2==1) continue;
-            // Line number 저장
-            if (carry == 0) receivedData[0] = frame.data[2];
-            
-            // 데이터 이어붙이기
-            memcpy(receivedData + (carry * 5) + 1, frame.data + 3, frame.can_dlc - 3);
-           
-            printf("%s\n",receivedData);
-            // 마지막 패킷인지 확인
-            if (frame.data[1] == '1') {
-                
-                printf("text: %s\n", receivedData);
-                
-                return 2;  // displayText 호출 완료
+
+            //!-----------packet이 2개 이상인데 그 중 제일 첫 번째 packet인 경우-----------------------------
+            //일단 제일 첫 packet은 id 저장 
+            if(index==0){idCheck=frame.can_id;}
+            //!---------2개 이상의 packet 중에서 첫 번째가 아닌 경우------------------------------------------
+            else{
+                //만약 valid pkt이 아니라면 wrongId 저장하고 pass
+                if(frame.can_id!=idCheck+1){
+                    wrongId=frame.can_id;
+                    continue;
+                }
+                //valid pkt이라면 valid id 저장
+                idCheck=frame.can_id;
             }
-            carry++;
+            //carry는 receivedData에 계속 이어 붙여야 해서 check용도. frame.data[2]는 Line number 
+            if (carry == 0) receivedData[0] = frame.data[2];
+            // 데이터 이어붙이기 (8byte 중 3byte는 rpc num, last packet 여부, linenum)
+            memcpy(receivedData + (carry * 5) + 1, frame.data + 3, frame.can_dlc - 3);
+
+            //!-----2개 이사으마지막 패킷인지 확인
+            if (frame.data[1] == '1') return 2;  
+            
+            //잘못된 pkt은 다 위에서 걸렀으니 이 pkt은 정상 처리됐음을 알리기 위해 index, cary 1씩 증가 
+            index++; carry++;
             continue;  // 계속 다음 패킷 받기
         }
-        
-
-        memcpy(receivedData, frame.data + 2, frame.can_dlc+1);  // data[1]부터 저장 (data[0]은 함수 ID)
-        receivedData[frame.can_dlc - 1] = '\0';  // 문자열 끝 처리
-        
-        printf("received data: %s\n", receivedData);
-        return rpc;
     }
-    
 }
 int init_can(){
         
@@ -142,13 +152,16 @@ int terminate_can() {
 }
 int write_can(char *buf, int len){
     frame.can_id = cId++;
+    //자기가 write한 pkt은 거르기 위해 저장 
+    myId=frame.can_id;
     frame.can_dlc = len;
     memcpy(frame.data, (char *)buf, len);
-    printf("frame.data (raw bytes): ");
-    for (int i = 0; i < len; i++) {
-        printf("%c ", (unsigned char)frame.data[i]); // 16진수로 출력
-    }
-    printf("\n");
+    // printf("id: %d\n",frame.can_id);
+    // printf("frame.data (raw bytes): ");
+    // for (int i = 0; i < len; i++) {
+    //     printf("%c ", (unsigned char)frame.data[i]); // 16진수로 출력
+    // }
+    // printf("\n");
     if (write(socketCANDescriptor, &frame, sizeof(struct can_frame)) != sizeof(struct can_frame)) {
             perror("Write failed");
             return -1;

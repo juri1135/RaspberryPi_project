@@ -56,9 +56,8 @@ int init_stub(){
                 int len = strlen(text);
                 char buff[8];
                 sprintf(buff,"%d",len);
-                printf("len: %c\n",buff[0]);
                 displayText(lineNum, text);
-                write_can(buff,sizeof(char));
+                write_can(buff,strlen(buff));
                 break;
             default:
                 printf("Unknown ID received: %d\n", id);
