@@ -35,6 +35,6 @@ int read_can();
 int init_can();
 int terminate_can();
 //dijkstra.c
-void findShortestPath(int source,int destination, char buffer[], int*  len);
+void findShortestPath(char source, char destination, char buffer[], int* len);
 void build_path(int dest, char buffer[], int* len);
 int main();

@@ -19,11 +19,10 @@ int main(){
     led_thread();
     
     // step 2 
-    int source = 2; // 시작 노드 (S)
-    int destination = 5; // 도착 노드 (D)
+    char src='A', des='E';
     char buf[128]="";
     int len;
-    findShortestPath(source, destination, buf, &len);
+    findShortestPath(src, des, buf, &len);
 
      //step 3 초음파 센서 
      ultrasonic_thread();

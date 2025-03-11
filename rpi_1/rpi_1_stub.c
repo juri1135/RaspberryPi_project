@@ -20,7 +20,7 @@ int moveMotor(int inputValue){
     //return값은 성공시 0
     delay(100); 
     int val=read_can();
-    printf("Requested RPC moveMotor() and received return value %d\n\n",inputValue);
+    printf("Requested RPC moveMotor() and received return value %d\n",inputValue);
     
     return val;
 }
@@ -49,6 +49,6 @@ int displayText(int lineNum, char *text){
     delay(100); 
     //return값은 문자열 크기
     int val=read_can();
-    printf("Requested RPC displayText() and received return value %d\n\n",val);
+    printf("Requested RPC displayText() and received return value %d\n",val);
     return val;
 }
